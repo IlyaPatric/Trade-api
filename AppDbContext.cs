@@ -8,5 +8,9 @@ namespace TradeApi
         public AppDbContext(DbContextOptions<AppDbContext> options) : base(options) { }
 
         public DbSet<Users> users { get; set; }
+        public DbSet<Category> category { get; set; }
+        public DbSet<Manufacturer> manufacturers { get; set; }
+        public DbSet<Provider> providers { get; set; }
+        public DbSet<Product> products { get; set; }
     }
 }
