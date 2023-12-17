@@ -6,35 +6,49 @@ namespace TradeApi.Tables
     public class Product
     {
         [Key]
-        public int id { get; set; }
+        [Required]
+        public string article { get; set; }
 
+        [Required]
         public string name { get; set; }
 
+        [Required]
+        [Column("max_discount_amount")]
         public int max_discount_amount { get; set; }
 
-        public int manufacturer_id { get; set; }
+        [Required]
+        [Column("manufacturer_id")]
+        [ForeignKey("Manufacturer")]
+        public int manufacturerId { get; set; }
 
-        public int provider_id {  get; set; }
+        [Required]
+        [Column("provider_id")]
+        [ForeignKey("Provider")]
+        public int providerId { get; set; }
 
-        public int category_id {  get; set; }
+        [Required]
+        [Column("category_id")]
+        [ForeignKey("Category")]
+        public int categoryId { get; set; }
 
-        public int price { get; set; }
+        [Required]
+        public decimal price { get; set; }
 
+        [Required]
+        [Column("discount_amount")]
         public int discount_amount { get; set; }
 
+        [Required]
+        [Column("quantity_in_stock")]
         public int quantity_in_stock { get; set; }
 
         public string description { get; set; }
-
+        
         public string photo {  get; set; }
 
-        //[ForeignKey("id")]
-        public Manufacturer Mnufacturer { get; set; }
-
-        //[ForeignKey("id")]
-        public Provider Provider { get; set; }
-
-        //[ForeignKey("id")]
-        public Category Category { get; set; }
+        
+        public Manufacturer manufacturer { get; set; }
+        public Provider provider { get; set; }
+        public Category category { get; set; }
     }
 }

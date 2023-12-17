@@ -1,5 +1,7 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using AutoMapper;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using TradeApi.Dto;
 using TradeApi.Tables;
 
 namespace TradeApi.Controllers
@@ -9,48 +11,119 @@ namespace TradeApi.Controllers
     public class ProductController : ControllerBase
     {
         private readonly AppDbContext _context;
-        public ProductController(AppDbContext context)
+        private readonly IMapper _mapper;
+
+        private Manufacturer? Manufacturer;
+        private Provider? Provider;
+        private Category? Category;
+
+        public ProductController(AppDbContext context, IMapper mapper)
         {
             _context = context;
+            _mapper = mapper;
         }
 
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<Product>>> GetProducts()
+        public async Task<ActionResult<IEnumerable<ProductDto>>> GetProducts()
         {
-            return await _context.products.ToListAsync();
+            var products = await _context.product
+                .Include(e => e.manufacturer)
+                .Include(e => e.provider)
+                .Include(e => e.category)
+                .ToListAsync();
+
+            return _mapper.Map<List<ProductDto>>(products);
         }
 
-        [HttpGet("{id}")]
-        public async Task<ActionResult<Product>> GetProduct(int id)
+        [HttpGet("{article}")]
+        public async Task<ActionResult<ProductDto>> GetProduct(string article)
         {
-            var product = await _context.products.FindAsync(id);
+            var product = await _context.product
+                .Include(p => p.manufacturer)
+                .Include(p => p.provider)
+                .Include(p => p.category)
+                .FirstOrDefaultAsync(p => p.article == article);
 
-            return product == null ? NotFound() : Ok(product);
+            if (product == null)
+            {
+                return NotFound();
+            }
+
+            return _mapper.Map<ProductDto>(product);
         }
 
         [HttpPost]
-        public async Task<ActionResult<Product>> PostProduct(Product product)
+        public async Task<ActionResult<ProductDto>> PostProduct(ProductDto productDto)
         {
-            _context.products.Add(product);
-            await _context.SaveChangesAsync();
+            await GetForeignKey(productDto);
+            if (Manufacturer == default ||
+                Provider == default ||
+                Category == default)
+            {
+                return BadRequest();
+            }
 
-            return CreatedAtAction("GetProduct", new { id = product.id }, product);
+            var product = new Product()
+            {
+                article = productDto.article,
+                name = productDto.name,
+                max_discount_amount = productDto.max_discount_amount,
+                manufacturerId = Manufacturer.id,
+                providerId = Provider.id,
+                categoryId = Category.id,
+                price = productDto.price,
+                discount_amount = productDto.discount_amount,
+                quantity_in_stock = productDto.quantity_in_stock,
+                description = productDto.description,
+                photo = productDto.photo
+            };
+
+            _context.product.Add(product);
+            
+            await _context.SaveChangesAsync();
+            return CreatedAtAction("GetProduct", new { article = productDto.article }, productDto);
         }
 
-        [HttpPut("{id}")]
-        public async Task<IActionResult> PutProduct(int id, Product product)
+        [HttpPut("{article}")]
+        public async Task<IActionResult> PutProduct(string article, ProductDto productDto)
         {
-            if (id != product.id)
+            if (article != productDto.article)
+            {
                 return BadRequest();
+            }
+
+            await GetForeignKey(productDto);
+            if (Manufacturer == default ||
+                Provider == default ||
+                Category == default)
+            {
+                return BadRequest();
+            }
+
+            var product = new Product()
+            {
+                article = productDto.article,
+                name = productDto.name,
+                max_discount_amount = productDto.max_discount_amount,
+                manufacturerId = Manufacturer.id,
+                providerId = Provider.id,
+                categoryId = Category.id,
+                price = productDto.price,
+                discount_amount = productDto.discount_amount,
+                quantity_in_stock = productDto.quantity_in_stock,
+                description = productDto.description,
+                photo = productDto.photo
+            };
 
             _context.Entry(product).State = EntityState.Modified;
 
             try
             {
                 await _context.SaveChangesAsync();
-            } catch (DbUpdateConcurrencyException) 
+            } 
+            catch (DbUpdateConcurrencyException) 
             {
-                if (!ProductExist(id))
+                if (!ProductExist(article))
                 {
                     return NotFound();
                 }
@@ -60,26 +133,41 @@ namespace TradeApi.Controllers
                 }
             }
 
-            return NoContent();
+            return Ok();
         }
 
         [HttpDelete]
-        public async Task<IActionResult> DeleteProduct(int id)
+        public async Task<IActionResult> DeleteProduct(string article)
         {
-            var product = await _context.products.FindAsync(id);
+            var product = await _context.product.FindAsync(article);
             
             if (product == null)
+            {
                 return NotFound();
+            }
 
-            _context.products.Remove(product);
+            _context.product.Remove(product);
             await _context.SaveChangesAsync();
 
-            return NoContent();
+            return Ok();
         }
 
-        private bool ProductExist(int id)
+        private async Task GetForeignKey(ProductDto productDto)
         {
-            return _context.products.Any(e => e.id == id);
+            Manufacturer = await _context.manufacturer.FirstOrDefaultAsync(o =>
+                o.name == productDto.manufacturer
+            );
+            Provider = await _context.provider.FirstOrDefaultAsync(o =>
+                o.name == productDto.provider
+            );
+            Category = await _context.category.FirstOrDefaultAsync(o =>
+                o.name == productDto.category
+            );
+        }
+
+        private bool ProductExist(string article)
+        {
+            return _context.product.Any(e => e.article == article);
         }
     }
 }
